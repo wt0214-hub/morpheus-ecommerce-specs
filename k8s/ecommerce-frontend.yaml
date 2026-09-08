@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-web
+  labels:
+    app: ecommerce-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-web
+  template:
+    metadata:
+      labels:
+        app: ecommerce-web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongodb-service:27017/ecommerce"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        volumeMounts:
+        - name: html-volume
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: html-volume
+        configMap:
+          name: ecommerce-html-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: ecommerce-web
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ecommerce-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: mongodb-service
+subsets:
+- addresses:
+  - ip: 192.168.54.118
+  ports:
+  - port: 27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: redis-service
+subsets:
+- addresses:
+  - ip: 192.168.54.117
+  ports:
+  - port: 6379
