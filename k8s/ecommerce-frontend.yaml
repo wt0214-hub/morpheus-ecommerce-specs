@@ -4,8 +4,10 @@ metadata:
   name: ecommerce-web
   labels:
     app: ecommerce-web
+    tier: frontend
+    managed-by: gitops-morpheus
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: ecommerce-web
@@ -13,6 +15,9 @@ spec:
     metadata:
       labels:
         app: ecommerce-web
+        tier: frontend
+      annotations:
+        gitops.sync/triggered-at: "2026-09-09T15:45:00Z"
     spec:
       containers:
       - name: nginx
@@ -38,6 +43,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ecommerce-service
+  labels:
+    app: ecommerce-web
+    tier: frontend
 spec:
   type: ClusterIP
   ports:
@@ -70,6 +78,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mongodb-service
+  labels:
+    tier: database
 spec:
   ports:
   - port: 27017
@@ -79,6 +89,8 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: mongodb-service
+  labels:
+    tier: database
 subsets:
 - addresses:
   - ip: 192.168.54.118
@@ -89,6 +101,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis-service
+  labels:
+    tier: cache
 spec:
   ports:
   - port: 6379
@@ -98,6 +112,8 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: redis-service
+  labels:
+    tier: cache
 subsets:
 - addresses:
   - ip: 192.168.54.117
