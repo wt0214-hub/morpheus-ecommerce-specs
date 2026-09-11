@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-api
+  namespace: ecom-05
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-api
+  template:
+    metadata:
+      labels:
+        app: ecommerce-api
+    spec:
+      containers:
+      - name: api
+        image: docker.io/winsonteng/ecommerce-api:v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: MONGO_HOST
+          value: "192.168.54.118:27017 (MongoDB VM)"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-api-service
+  namespace: ecom-05
+spec:
+  selector:
+    app: ecommerce-api
+  ports:
+  - port: 8080
+    targetPort: 8080
