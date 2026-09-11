@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecommerce-api-code
+  namespace: ecom-05
+data:
+  server.py: |
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import redis, json, random, time, os
+
+    POD_NAME = os.environ.get('HOSTNAME', 'k8s-ecom-api-pod')
+    REDIS_HOST = os.environ.get('REDIS_HOST', 'redis-service')
+    r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            
+            stock = 0
+            try:
+                val = r.get('stock')
+                stock = int(val) if val is not None else 0
+            except: pass
+
+            if '/api/buy' in self.path:
+                if stock <= 0:
+                    res = {
+                        "success": False,
+                        "soldOut": True,
+                        "stock": 0,
+                        "pod": POD_NAME,
+                        "redis": {"latency": 1, "host": f"{REDIS_HOST}:6379"},
+                        "mongo": {"latency": 2, "host": "192.168.54.118:27017 (MongoDB VM)"}
+                    }
+                else:
+                    try: stock = r.decr('stock')
+                    except: stock = max(0, stock - 1)
+                    order_id = f"ORD-{int(time.time())}-{random.randint(1000,9999)}"
+                    res = {
+                        "success": True,
+                        "soldOut": (stock <= 0),
+                        "orderId": order_id,
+                        "pod": POD_NAME,
+                        "stock": max(0, stock),
+                        "redis": {"latency": random.randint(1, 2), "host": f"{REDIS_HOST}:6379"},
+                        "mongo": {"latency": random.randint(2, 4), "host": "192.168.54.118:27017 (MongoDB VM)"}
+                    }
+            elif '/api/reset' in self.path:
+                try:
+                    r.set('stock', 50)
+                    stock = 50
+                except: pass
+                res = {"success": True, "soldOut": False, "stock": 50, "pod": POD_NAME}
+            else:
+                res = {
+                    "pod": POD_NAME,
+                    "soldOut": (stock <= 0),
+                    "stock": max(0, stock),
+                    "redis": {"latency": 1, "host": f"{REDIS_HOST}:6379"},
+                    "mongo": {"latency": 3, "host": "192.168.54.118:27017 (MongoDB VM)"}
+                }
+            self.wfile.write(json.dumps(res).encode())
+
+    HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
